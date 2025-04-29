@@ -1,12 +1,20 @@
-prog: main.o game.o
-	gcc main.o game.o -o game -lSDL -lSDL_image -lSDL_ttf -lSDL_mixer
 
-main.o: main.c
-	gcc -c main.c -g
+CC = gcc
+CFLAGS = -Wall -lSDL -lSDL_ttf -lSDL_mixer -lSDL_image
+OBJS = main.o enigme.o
+TARGET = prog
 
-game.o: game.c
-	gcc -c game.c -g
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(OBJS) -o $(TARGET) $(CFLAGS)
+
+main.o: main.c enigme.h
+	$(CC) -c main.c -o main.o $(CFLAGS)
+
+enigme.o: enigme.c enigme.h
+	$(CC) -c enigme.c -o enigme.o $(CFLAGS)
 
 clean:
-	rm -f *.o game
+	rm -f $(OBJS) $(TARGET)
 

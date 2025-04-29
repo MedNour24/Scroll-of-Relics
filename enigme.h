@@ -82,3 +82,5 @@ void afficher_victoire(SDL_Surface *ecran);
 
 
 #endif
+
+

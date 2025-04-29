@@ -238,10 +238,10 @@ void afficher_enigme(enigme *e, SDL_Surface *ecran, int souris_x, int souris_y) 
             souris_y >= e->pos_reponse1.y && souris_y <= e->pos_reponse1.y + e->button->h) {
             hover_button = 1;
         } else if (souris_x >= e->pos_reponse2.x && souris_x <= e->pos_reponse2.x + e->button->w &&
-                 souris_y >= e->pos_reponse2.y && souris_y <= e->pos_reponse2.y + e->button->h) {
+                   souris_y >= e->pos_reponse2.y && souris_y <= e->pos_reponse2.y + e->button->h) {
             hover_button = 2;
         } else if (souris_x >= e->pos_reponse3.x && souris_x <= e->pos_reponse3.x + e->button->w &&
-                 souris_y >= e->pos_reponse3.y && souris_y <= e->pos_reponse3.y + e->button->h) {
+                   souris_y >= e->pos_reponse3.y && souris_y <= e->pos_reponse3.y + e->button->h) {
             hover_button = 3;
         }
     }
@@ -274,9 +274,24 @@ void afficher_enigme(enigme *e, SDL_Surface *ecran, int souris_x, int souris_y) 
     if (e->score_surface) SDL_BlitSurface(e->score_surface, NULL, ecran, &e->pos_score);
     if (e->level_surface) SDL_BlitSurface(e->level_surface, NULL, ecran, &e->pos_level);
 
+    // Draw timer animation (progress bar)
+    SDL_Rect timer_border = {e->pos_timer.x, e->pos_timer.y, 150, 20}; // Border: 150px wide, 20px tall
+    SDL_FillRect(ecran, &timer_border, SDL_MapRGB(ecran->format, 255, 255, 255)); // White border
+
+    // Calculate fill width based on remaining time
+    float time_ratio = (float)e->temps_restant / TEMPS_PAR_QUESTION;
+    int fill_width = (int)(148 * time_ratio); // 148px max (2px border)
+    if (fill_width < 0) fill_width = 0;
+    if (fill_width > 148) fill_width = 148;
+
+    // Color: Green (0,255,0) when full, Red (255,0,0) when empty
+    Uint8 r = (Uint8)(255 * (1 - time_ratio));
+    Uint8 g = (Uint8)(255 * time_ratio);
+    SDL_Rect timer_fill = {e->pos_timer.x + 1, e->pos_timer.y + 1, fill_width, 18};
+    SDL_FillRect(ecran, &timer_fill, SDL_MapRGB(ecran->format, r, g, 0));
+
     SDL_Flip(ecran);
 }
-
 int verify_enigme(enigme *e, SDL_Surface *ecran) {
     if (e->pos_selected < 1 || e->pos_selected > 3) return 0;
 
@@ -348,23 +363,27 @@ void free_enigme(enigme *e) {
     if (e->correct_sound) Mix_FreeChunk(e->correct_sound);
     if (e->wrong_sound) Mix_FreeChunk(e->wrong_sound);
 }
-
 int afficher_ecran_accueil(SDL_Surface *ecran) {
-    if (!ecran) return -1;
+    if (!ecran) {
+        printf("Error: Screen surface is NULL\n");
+        return -1;
+    }
 
+    // Print screen info
+    printf("Screen: w=%d, h=%d\n", SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    // Load images
     SDL_Surface *bg = IMG_Load("bg.png");
     if (!bg) {
         printf("Failed to load bg.png: %s\n", IMG_GetError());
         return -1;
     }
-
     SDL_Surface *quizz = IMG_Load("quizz.png");
     if (!quizz) {
         printf("Failed to load quizz.png: %s\n", IMG_GetError());
         SDL_FreeSurface(bg);
         return -1;
     }
-
     SDL_Surface *puz = IMG_Load("puz.png");
     if (!puz) {
         printf("Failed to load puz.png: %s\n", IMG_GetError());
@@ -373,45 +392,98 @@ int afficher_ecran_accueil(SDL_Surface *ecran) {
         return -1;
     }
 
-    SDL_Rect pos_quizz = {-300, 100};
-    SDL_Rect pos_puz = {375, 100};
+    // Define positions
+    SDL_Rect pos_bg = {0, 0};
+    SDL_Rect pos_quizz = {100, 100}; 
+    SDL_Rect pos_puz = {-300, 100};  
 
+    // Define clickable areas
+    int quizz_click_x = 600;       
+    int quizz_click_y = 700;       
+    int quizz_click_w = 200;             
+    int quizz_click_h = 200;
+    int quizz_clickable_right = quizz_click_x + quizz_click_w; 
+
+   int puz_clickable_left = (pos_puz.x > 0) ? pos_puz.x : 0; 
+   int puz_clickable_top = (pos_puz.y > 0) ? pos_puz.y : 0; 
+   int clickable_width = 300;
+   int clickable_height = 300;
+   int puz_clickable_right = puz_clickable_left + clickable_width; 
+   int puz_clickable_bottom = puz_clickable_top + clickable_height; 
+
+// Ensure the area stays within screen bounds
+if (puz_clickable_right > SCREEN_WIDTH) {
+    puz_clickable_right = SCREEN_WIDTH;
+}
+if (puz_clickable_bottom > SCREEN_HEIGHT) {
+    puz_clickable_bottom = SCREEN_HEIGHT;
+}
+
+    // Log clickable areas
+    printf("Clickable areas:\n");
+    printf("  quizz: x=%d to %d, y=%d to %d\n", quizz_click_x, quizz_click_x + quizz_click_w, 
+           quizz_click_y, quizz_click_y + quizz_click_h);
+    printf("  puz: x=%d to %d, y=%d to %d\n", puz_clickable_left, puz_clickable_right, 
+           puz_clickable_top, puz_clickable_bottom);
+
+    // Render screen
     SDL_FillRect(ecran, NULL, SDL_MapRGB(ecran->format, 0, 0, 0));
-    SDL_BlitSurface(bg, NULL, ecran, NULL);
+    SDL_BlitSurface(bg, NULL, ecran, &pos_bg);
     SDL_BlitSurface(quizz, NULL, ecran, &pos_quizz);
     SDL_BlitSurface(puz, NULL, ecran, &pos_puz);
     SDL_Flip(ecran);
+    printf("Screen rendered\n");
 
+    // Event loop
     int choice = 0;
     SDL_Event event;
-    while (!choice) {
+    while (choice == 0) {
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                choice = -1;
-                break;
+            // Log mouse movement
+            if (event.type == SDL_MOUSEMOTION) {
+                printf("Mouse at x=%d, y=%d\n", event.motion.x, event.motion.y);
+                continue;
             }
-            if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
+            printf("Event type=%d\n", event.type);
+            if (event.type == SDL_QUIT) {
+                printf("SDL_QUIT received\n");
+                choice = -1;
+            }
+            else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
                 int x = event.button.x;
                 int y = event.button.y;
-                if (x >= pos_quizz.x && x <= pos_quizz.x + quizz->w &&
-                    y >= pos_quizz.y && y <= pos_quizz.y + quizz->h) {
+                printf("Clicked at x=%d, y=%d\n", x, y);
+                if (x >= quizz_click_x && x < quizz_clickable_right &&
+                    y >= quizz_click_y && y < quizz_click_y + quizz_click_h) {
+                    printf("Clicked quizz.png\n");
                     choice = 1;
-                } else if (x >= pos_puz.x && x <= pos_puz.x + puz->w &&
-                           y >= pos_puz.y && y <= pos_puz.y + puz->h) {
+                }
+                else if (x >= puz_clickable_left && x < puz_clickable_right &&
+                         y >= puz_clickable_top && y < puz_clickable_bottom) {
+                    printf("Clicked puz.png\n");
                     choice = 2;
                 }
+                else {
+                    printf("Clicked outside both areas\n");
+                }
+                while (SDL_PollEvent(&event)); // Clear queue
             }
         }
-        SDL_Delay(10);
+        // Redraw screen
+        SDL_FillRect(ecran, NULL, SDL_MapRGB(ecran->format, 0, 0, 0));
+        SDL_BlitSurface(bg, NULL, ecran, &pos_bg);
+        SDL_BlitSurface(quizz, NULL, ecran, &pos_quizz);
+        SDL_BlitSurface(puz, NULL, ecran, &pos_puz);
+        SDL_Flip(ecran);
+        SDL_Delay(10); // Small delay to reduce CPU usage
     }
 
+    printf("Exiting with choice=%d\n", choice);
     SDL_FreeSurface(bg);
     SDL_FreeSurface(quizz);
     SDL_FreeSurface(puz);
-
     return choice;
 }
-
 void afficher_game_over(SDL_Surface *ecran) {
     if (!ecran) return;
 
@@ -445,3 +517,5 @@ void afficher_victoire(SDL_Surface *ecran) {
     SDL_Delay(3000);
     SDL_FreeSurface(victoire);
 }
+
+
